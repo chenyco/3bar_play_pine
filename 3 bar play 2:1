@@ -1,0 +1,42 @@
+//@version=4
+strategy("3 bar play 2:1", overlay=true)
+
+riskUnit = input(10, title="Risk Unit $")
+wieghtedRatio = input(2.2, title="Wieghted Bar ATR Ratio")
+smallBarRatio = input(0.8, title="Small Bar Ratio")
+equalPriceRatio = input(0.2, title="Equal Price Ratio")
+
+atr = atr(14)
+
+wiegtedPrevAtr = tr(true)[1]
+currentAtr = tr(true)[0]
+
+prevIsLong = close[1] > open[1]
+trade = wiegtedPrevAtr > atr * wieghtedRatio and currentAtr < wiegtedPrevAtr * smallBarRatio
+
+// check relative price for the two bars
+priceDiff = equalPriceRatio * close
+trade := trade and (prevIsLong ? abs(high[1] - high[0]) < priceDiff : abs(low[1] - low[0]) < priceDiff)
+
+//check for new price level
+trade := trade and (prevIsLong ? pivothigh(14,0) - priceDiff < low[1] :  pivotlow(14,0) + priceDiff > high[1])
+
+
+if (trade) // and  year > 2019)
+    entry = prevIsLong ? high + syminfo.mintick : low - syminfo.mintick
+    limit =  prevIsLong ? entry + syminfo.mintick :  entry - syminfo.mintick
+    stopSize = prevIsLong ? entry - low : high - entry
+    qty = riskUnit / stopSize
+    entryString = tostring(entry)
+
+    if strategy.opentrades == 0
+        strategy.entry("entry", prevIsLong , comment="Entry" + entryString, stop=entry, limit=limit, qty = qty)
+        stop = prevIsLong ? entry - stopSize : entry + stopSize
+        //trail_price = prevIsLong ? entry + stopSize : entry - stopSize
+        //strategy.exit("stopProfit1", "entry", stop = stop, trail_price = trail_price, comment="Stop/Profit1_" + entryString, qty = qty * 0.25)
+        trail_price2 = prevIsLong ? entry + stopSize * 2 : entry - stopSize * 2
+        strategy.exit("stopProfit2", "entry", stop = stop, trail_price = trail_price2, comment="Stop/Profit2_" + entryString) //, qty = qty - (qty * 0.25))
+        label.new(bar_index[0], entry,"entry " + tostring(entry), style=label.style_none, textcolor=#ffffff)
+        //label.new(bar_index[0], entry - stopSize,"stop " + tostring(entry - stopSize), style=label.style_none, textcolor=#AA0000)
+        //label.new(bar_index[0], entry + stopSize * 2,"profit" + " " + tostring(entry + stopSize * 2), style=label.style_none, textcolor=#00AA00)
+        //label.new(bar_index, qty)

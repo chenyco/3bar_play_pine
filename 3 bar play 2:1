@@ -1,4 +1,4 @@
-//@version=4
+//@version=6
 strategy("3 bar play 2:1", overlay=true)
 
 riskUnit = input(10, title="Risk Unit $")

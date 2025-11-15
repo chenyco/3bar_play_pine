@@ -18,7 +18,7 @@ trade := wiegtedPrevAtr > atrValue * wieghtedRatio and currentAtr < wiegtedPrevA
 
 // check relative price for the two bars
 priceDiff = equalPriceRatio * close
-trade := trade and (prevIsLong ? abs(high[1] - high[0]) < priceDiff : abs(low[1] - low[0]) < priceDiff)
+trade := trade and (prevIsLong ? math.abs(high[1] - high[0]) < priceDiff : math.abs(low[1] - low[0]) < priceDiff)
 
 //check for new price level
 pivothigh = pivothigh(14,0)[2]

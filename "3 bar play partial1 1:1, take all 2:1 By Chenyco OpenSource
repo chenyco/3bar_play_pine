@@ -1,11 +1,10 @@
 //@version=6
-strategy("3 bar play partial1 1:1, take all 2:1 By Chenyco OpenSource", shorttitle ="3BP Chenyco", overlay=true, default_qty_type =  strategy.cash, initial_capital= 3000, commission_type = strategy.commission.cash_per_order, commission_value = 1.5)
+strategy("3 bar play 2:1", overlay=true)
 
-riskUnit = input(30, title="Risk Unit $")
-wieghtedRatio = input(2.75, title="Weighted Bar ATR Ratio")
-smallBarRatio = input(0.5, title="Small Bar Ratio")
-equalPriceRatio = input(0.009, title="Equal Price Ratio")
-partialQty = input(0.25, title="Partial Qty Ratio")
+riskUnit = input(10, title="Risk Unit $")
+wieghtedRatio = input(2.2, title="Wieghted Bar ATR Ratio")
+smallBarRatio = input(0.8, title="Small Bar Ratio")
+equalPriceRatio = input(0.2, title="Equal Price Ratio")
 
 atrValue = ta.atr(14)
 
@@ -13,67 +12,28 @@ wiegtedPrevAtr = ta.tr[1]
 currentAtr = ta.tr
 
 prevIsLong = close[1] > open[1]
-trade = false
-trade := wiegtedPrevAtr > atrValue * wieghtedRatio and currentAtr < wiegtedPrevAtr * smallBarRatio
+trade = wiegtedPrevAtr > atrValue * wieghtedRatio and currentAtr < wiegtedPrevAtr * smallBarRatio
 
 // check relative price for the two bars
 priceDiff = equalPriceRatio * close
-trade := trade and (prevIsLong ? math.abs(high[1] - high[0]) < priceDiff : math.abs(low[1] - low[0]) < priceDiff)
+trade := trade and (prevIsLong ? abs(high[1] - high[0]) < priceDiff : abs(low[1] - low[0]) < priceDiff)
 
 //check for new price level
-pivothigh = pivothigh(14,0)[2]
-pivothigh := na(pivothigh) ? pivothigh[1] : pivothigh
-pivotlow = pivotlow(14,0)[2]
-pivotlow := na(pivotlow) ? pivotlow[1] : pivotlow
-//plot(pivothigh)
-//plot(pivothigh - priceDiff, color=#0000AA)
-//plot(low[1], color=#AA0000)
-
-trade := trade and (prevIsLong ? pivotlow - priceDiff < low[1] :  pivothigh + priceDiff > high[1])
-trade := trade and (prevIsLong ? pivothigh - priceDiff < high[1] :  pivotlow + priceDiff > low[1])
-
-entry = prevIsLong ? high + syminfo.mintick : low - syminfo.mintick
+phigh = ta.pivothigh(14,0)
+plow = ta.pivotlow(14,0)
+trade := trade and (prevIsLong ? plow - priceDiff < low[1] :  phigh + priceDiff > high[1])
 
 
-if (trade[4] and strategy.opentrades == 0) 
-    strategy.cancel("entry")
-    label.new(bar_index[0], entry[4],"canceled " + tostring(entry[4]), style=label.style_none, textcolor=#ffffff)
-
-
-var float trail_price1 = na
-trail_price1 := trail_price1[1]
-var float trail_price2 = na
-trail_price2 := trail_price2[1]
-var float qty2 = na
-qty2 := qty2[1]
-var string entryString = na
-entryString := entryString[1]
-var float limit = na
-limit := limit[1]
-var raisedStop = false
-raisedStop := raisedStop[1]
-
-if (strategy.opentrades > 0 and partialQty > 0 and (strategy.position_size > 0 ? close >= trail_price1 : close <= trail_price1) and not raisedStop) 
-    raisedStop := true
-    strategy.cancel("entry")
-    strategy.exit("stopProfit2", "entry", stop = limit, trail_price = trail_price2, comment="Stop/Profit2_" + entryString, qty = qty2)
-    label.new(bar_index[0], limit,"raise stop " + tostring(limit), style=label.style_none, textcolor=#ffffff)
-    
 if (trade) // and  year > 2019)
-    limit :=  prevIsLong ? entry + syminfo.mintick :  entry - syminfo.mintick
+    entry = prevIsLong ? high + syminfo.mintick : low - syminfo.mintick
+    limit =  prevIsLong ? entry + syminfo.mintick :  entry - syminfo.mintick
     stopSize = prevIsLong ? entry - low : high - entry
     qty = riskUnit / stopSize
-    qty1 = floor(qty * partialQty)
-    qty2 := qty - qty1
-    entryString := tostring(entry)
+    entryString = tostring(entry)
 
     if strategy.opentrades == 0
-        raisedStop := false
         strategy.entry("entry", prevIsLong , comment="Entry" + entryString, stop=entry, limit=limit, qty = qty)
         stop = prevIsLong ? entry - stopSize : entry + stopSize
-        trail_price1 := prevIsLong ? entry + stopSize : entry - stopSize
-        if (partialQty > 0)
-            strategy.exit("stopProfit1", "entry", stop = stop, trail_price = trail_price1, comment="Stop/Profit1_" + entryString, qty = qty1)
-        trail_price2 := prevIsLong ? entry + stopSize * 2 : entry - stopSize * 2
-        strategy.exit("stopProfit2", "entry", stop = stop, trail_price = trail_price2, comment="Stop/Profit2_" + entryString, qty = qty2)
+        trail_price2 = prevIsLong ? entry + stopSize * 2 : entry - stopSize * 2
+        strategy.exit("stopProfit2", "entry", stop = stop, trail_price = trail_price2, comment="Stop/Profit2_" + entryString)
         label.new(bar_index[0], entry,"entry " + tostring(entry), style=label.style_none, textcolor=#ffffff)

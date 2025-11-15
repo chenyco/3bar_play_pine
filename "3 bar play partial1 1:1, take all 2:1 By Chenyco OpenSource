@@ -1,4 +1,4 @@
-//@version=4
+//@version=6
 strategy("3 bar play partial1 1:1, take all 2:1 By Chenyco OpenSource", shorttitle ="3BP Chenyco", overlay=true, default_qty_type =  strategy.cash, initial_capital= 3000, commission_type = strategy.commission.cash_per_order, commission_value = 1.5)
 
 riskUnit = input(30, title="Risk Unit $")

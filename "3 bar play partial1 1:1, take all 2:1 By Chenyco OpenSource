@@ -16,7 +16,7 @@ trade = wiegtedPrevAtr > atrValue * wieghtedRatio and currentAtr < wiegtedPrevAt
 
 // check relative price for the two bars
 priceDiff = equalPriceRatio * close
-trade := trade and (prevIsLong ? abs(high[1] - high[0]) < priceDiff : abs(low[1] - low[0]) < priceDiff)
+trade := trade and (prevIsLong ? math.abs(high[1] - high[0]) < priceDiff : math.abs(low[1] - low[0]) < priceDiff)
 
 //check for new price level
 phigh = ta.pivothigh(14,0)
@@ -29,11 +29,11 @@ if (trade) // and  year > 2019)
     limit =  prevIsLong ? entry + syminfo.mintick :  entry - syminfo.mintick
     stopSize = prevIsLong ? entry - low : high - entry
     qty = riskUnit / stopSize
-    entryString = tostring(entry)
+    entryString = str.tostring(entry)
 
     if strategy.opentrades == 0
-        strategy.entry("entry", prevIsLong , comment="Entry" + entryString, stop=entry, limit=limit, qty = qty)
+        strategy.entry("entry", prevIsLong ? strategy.long : strategy.short, comment="Entry" + entryString, stop=entry, limit=limit, qty = qty)
         stop = prevIsLong ? entry - stopSize : entry + stopSize
         trail_price2 = prevIsLong ? entry + stopSize * 2 : entry - stopSize * 2
         strategy.exit("stopProfit2", "entry", stop = stop, trail_price = trail_price2, comment="Stop/Profit2_" + entryString)
-        label.new(bar_index[0], entry,"entry " + tostring(entry), style=label.style_none, textcolor=#ffffff)
+        label.new(bar_index[0], entry,"entry " + str.tostring(entry), style=label.style_none, textcolor=#ffffff)

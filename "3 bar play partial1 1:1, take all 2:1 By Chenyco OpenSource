@@ -7,14 +7,14 @@ smallBarRatio = input(0.5, title="Small Bar Ratio")
 equalPriceRatio = input(0.009, title="Equal Price Ratio")
 partialQty = input(0.25, title="Partial Qty Ratio")
 
-atr = atr(14)
+atrValue = atr(14)
 
 wiegtedPrevAtr = tr(true)[1]
 currentAtr = tr(true)[0]
 
 prevIsLong = close[1] > open[1]
 trade = false
-trade := wiegtedPrevAtr > atr * wieghtedRatio and currentAtr < wiegtedPrevAtr * smallBarRatio
+trade := wiegtedPrevAtr > atrValue * wieghtedRatio and currentAtr < wiegtedPrevAtr * smallBarRatio
 
 // check relative price for the two bars
 priceDiff = equalPriceRatio * close

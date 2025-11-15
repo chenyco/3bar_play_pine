@@ -6,10 +6,10 @@ wieghtedRatio = input(2.2, title="Wieghted Bar ATR Ratio")
 smallBarRatio = input(0.8, title="Small Bar Ratio")
 equalPriceRatio = input(0.2, title="Equal Price Ratio")
 
-atrValue = atr(14)
+atrValue = ta.atr(14)
 
-wiegtedPrevAtr = tr(true)[1]
-currentAtr = tr(true)[0]
+wiegtedPrevAtr = ta.tr[1]
+currentAtr = ta.tr
 
 prevIsLong = close[1] > open[1]
 trade = wiegtedPrevAtr > atrValue * wieghtedRatio and currentAtr < wiegtedPrevAtr * smallBarRatio

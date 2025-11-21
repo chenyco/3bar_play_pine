@@ -60,8 +60,6 @@ useAtrStop = input.bool(false, "Use ATR-based Stop", group="Risk Management",
      tooltip="Use ATR for stop distance instead of bar range")
 atrStopMultiplier = input.float(1.5, "ATR Stop Multiplier", minval=0.5, maxval=5.0, step=0.1,
      group="Risk Management", tooltip="Multiplier for ATR when using ATR-based stops")
-fixedStopPercent = input.float(1.0, "Fixed Stop %", minval=0.1, maxval=10.0, step=0.1,
-     group="Risk Management", tooltip="Fixed stop loss percentage (used when ATR stop disabled)")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUTS - Visuals
@@ -161,7 +159,9 @@ if lookingForBar2 and barstate.isconfirmed and bar_index == bar1Index + 1
     bodySmaller = bodySize < bodySize[1] * 0.8  // Smaller than Bar 1
     if isBullishPattern
         // For bullish pattern: resting bar must stay in upper 50% of Bar 1
-        inUpperHalf = low >= bar1Mid and high <= bar1High * (1 + restingBarTolerance)
+        rangeSize = bar1High - bar1Low
+        allowedOvershoot = rangeSize * restingBarTolerance
+        inUpperHalf = low >= bar1Mid and high <= bar1High + allowedOvershoot
         if inUpperHalf and bodySmaller
             bar2Index := bar_index
             lookingForBar2 := false
@@ -173,7 +173,9 @@ if lookingForBar2 and barstate.isconfirmed and bar_index == bar1Index + 1
             lookingForBar3 := false
     else
         // For bearish pattern: resting bar must stay in lower 50% of Bar 1
-        inLowerHalf = high <= bar1Mid and low >= bar1Low * (1 - restingBarTolerance)
+        rangeSize = bar1High - bar1Low
+        allowedUndershoot = rangeSize * restingBarTolerance
+        inLowerHalf = high <= bar1Mid and low >= bar1Low - allowedUndershoot
         if inLowerHalf and bodySmaller
             bar2Index := bar_index
             lookingForBar2 := false
@@ -360,20 +362,19 @@ if showDashboard and isStrategyMode
 // ═══════════════════════════════════════════════════════════════════════════
 // ALERTS
 // ═══════════════════════════════════════════════════════════════════════════
-if enableAlerts
-    // Alert for long setup
-    alertcondition(triggerLong, 
-         title="3 Bar Play - Long Setup", 
-         message="3 Bar Play LONG triggered at {{close}} | Entry: " + str.tostring(entryPrice) + 
-         " | Stop: " + str.tostring(stopPrice) + " | Target: " + str.tostring(takeProfitPrice) +
-         " | Bar Index: {{bar_index}}")
-    
-    // Alert for short setup
-    alertcondition(triggerShort, 
-         title="3 Bar Play - Short Setup", 
-         message="3 Bar Play SHORT triggered at {{close}} | Entry: " + str.tostring(entryPrice) + 
-         " | Stop: " + str.tostring(stopPrice) + " | Target: " + str.tostring(takeProfitPrice) +
-         " | Bar Index: {{bar_index}}")
+// Alert for long setup
+alertcondition(triggerLong and enableAlerts, 
+     title="3 Bar Play - Long Setup", 
+     message="3 Bar Play LONG triggered at {{close}} | Entry: " + str.tostring(entryPrice) + 
+     " | Stop: " + str.tostring(stopPrice) + " | Target: " + str.tostring(takeProfitPrice) +
+     " | Bar Index: {{bar_index}}")
+
+// Alert for short setup
+alertcondition(triggerShort and enableAlerts, 
+     title="3 Bar Play - Short Setup", 
+     message="3 Bar Play SHORT triggered at {{close}} | Entry: " + str.tostring(entryPrice) + 
+     " | Stop: " + str.tostring(stopPrice) + " | Target: " + str.tostring(takeProfitPrice) +
+     " | Bar Index: {{bar_index}}")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PLOTS (for study mode visualization)

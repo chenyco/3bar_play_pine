@@ -45,6 +45,7 @@ The inverse of the bullish pattern:
 - **Body Multiplier**: Multiplier for average body to define wide-range (default: 1.5)
 - **ATR Length**: Period for ATR calculation (default: 14)
 - **ATR Multiplier**: Multiplier for ATR to define wide-range (default: 1.2)
+- **Resting Bar Tolerance**: Tolerance for resting bar staying within Bar 1 range (default: 0.02 = 2%)
 
 #### Filters
 - **Use EMA Trend Filter**: Only take longs above EMA, shorts below EMA
@@ -57,7 +58,6 @@ The inverse of the bullish pattern:
 - **Risk:Reward Ratio**: Target profit = stop distance × ratio (default: 2.0)
 - **Use ATR-based Stop**: Use ATR for stop distance instead of bar range
 - **ATR Stop Multiplier**: Multiplier for ATR stops (default: 1.5)
-- **Fixed Stop %**: Fixed stop loss percentage when ATR stop disabled (default: 1.0)
 
 #### Visuals
 - **Highlight Pattern Bars**: Color bars when pattern is detected

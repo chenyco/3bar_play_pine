@@ -126,6 +126,7 @@ var int bar2Index = na
 var float bar1High = na
 var float bar1Low = na
 var float bar1Mid = na
+var float bar1BodySize = na
 var bool lookingForBar2 = false
 var bool lookingForBar3 = false
 var bool isBullishPattern = false
@@ -139,6 +140,7 @@ if barstate.isconfirmed
             bar1High := high
             bar1Low := low
             bar1Mid := low + (high - low) / 2
+            bar1BodySize := bodySize
             lookingForBar2 := true
             lookingForBar3 := false
             isBullishPattern := true
@@ -148,6 +150,7 @@ if barstate.isconfirmed
             bar1High := high
             bar1Low := low
             bar1Mid := low + (high - low) / 2
+            bar1BodySize := bodySize
             lookingForBar2 := true
             lookingForBar3 := false
             isBullishPattern := false
@@ -156,7 +159,7 @@ if barstate.isconfirmed
 // Bar 2: Resting bar detection (must stay within upper/lower 50% of Bar 1)
 bar2Detected = false
 if lookingForBar2 and barstate.isconfirmed and bar_index == bar1Index + 1
-    bodySmaller = bodySize < bodySize[1] * 0.8  // Smaller than Bar 1
+    bodySmaller = bodySize < bar1BodySize * 0.8  // Current body smaller than Bar 1
     if isBullishPattern
         // For bullish pattern: resting bar must stay in upper 50% of Bar 1
         rangeSize = bar1High - bar1Low
@@ -303,68 +306,75 @@ var line stopLine = na
 var line takeProfitLine = na
 
 if showLines
-    // Delete old lines
-    if not na(stopLine)
-        line.delete(stopLine)
-    if not na(takeProfitLine)
-        line.delete(takeProfitLine)
-    
     // Draw new lines on trigger
-    if triggerLong and barstate.isconfirmed
-        stopLine := line.new(bar_index, stopPrice, bar_index + 20, stopPrice, 
-             color=color.red, width=2, style=line.style_dashed)
-        takeProfitLine := line.new(bar_index, takeProfitPrice, bar_index + 20, takeProfitPrice, 
-             color=color.green, width=2, style=line.style_dashed)
-    
-    if triggerShort and barstate.isconfirmed
-        stopLine := line.new(bar_index, stopPrice, bar_index + 20, stopPrice, 
-             color=color.red, width=2, style=line.style_dashed)
-        takeProfitLine := line.new(bar_index, takeProfitPrice, bar_index + 20, takeProfitPrice, 
-             color=color.green, width=2, style=line.style_dashed)
+    if (triggerLong or triggerShort) and barstate.isconfirmed
+        // Delete old lines
+        if not na(stopLine)
+            line.delete(stopLine)
+        if not na(takeProfitLine)
+            line.delete(takeProfitLine)
+        
+        if triggerLong
+            stopLine := line.new(bar_index, calculatedStopPrice, bar_index + 20, calculatedStopPrice, 
+                 color=color.red, width=2, style=line.style_dashed)
+            takeProfitLine := line.new(bar_index, calculatedTakeProfitPrice, bar_index + 20, calculatedTakeProfitPrice, 
+                 color=color.green, width=2, style=line.style_dashed)
+        
+        if triggerShort
+            stopLine := line.new(bar_index, calculatedStopPrice, bar_index + 20, calculatedStopPrice, 
+                 color=color.red, width=2, style=line.style_dashed)
+            takeProfitLine := line.new(bar_index, calculatedTakeProfitPrice, bar_index + 20, calculatedTakeProfitPrice, 
+                 color=color.green, width=2, style=line.style_dashed)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VISUALS - Performance Dashboard (Strategy Mode Only)
 // ═══════════════════════════════════════════════════════════════════════════
 var table dashboard = na
+var int lastTradeCount = 0
 
 if showDashboard and isStrategyMode
-    // Delete old table
-    if not na(dashboard)
-        table.delete(dashboard)
-    
-    // Create new table
-    dashboard := table.new(position.top_right, 2, 5, 
-         border_width=2, border_color=color.gray, frame_width=1, frame_color=color.gray)
-    
-    // Header
-    table.cell(dashboard, 0, 0, "Metric", text_color=color.white, bgcolor=color.new(color.blue, 50))
-    table.cell(dashboard, 1, 0, "Value", text_color=color.white, bgcolor=color.new(color.blue, 50))
-    
-    // Calculate metrics
     totalTrades = strategy.closedtrades
-    winningTrades = 0
     
-    if totalTrades > 0
-        for i = 0 to totalTrades - 1
-            if strategy.closedtrades.profit(i) > 0
-                winningTrades += 1
-    
-    winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0
-    netProfit = strategy.netprofit
-    
-    // Display metrics
-    table.cell(dashboard, 0, 1, "Total Trades", text_color=color.white, bgcolor=color.new(color.gray, 80))
-    table.cell(dashboard, 1, 1, str.tostring(totalTrades), text_color=color.white, bgcolor=color.new(color.gray, 80))
-    
-    table.cell(dashboard, 0, 2, "Win Rate", text_color=color.white, bgcolor=color.new(color.gray, 80))
-    table.cell(dashboard, 1, 2, str.tostring(winRate, "#.##") + "%", text_color=color.white, bgcolor=color.new(color.gray, 80))
-    
-    table.cell(dashboard, 0, 3, "Net Profit", text_color=color.white, bgcolor=color.new(color.gray, 80))
-    profitColor = netProfit > 0 ? color.green : netProfit < 0 ? color.red : color.gray
-    table.cell(dashboard, 1, 3, str.tostring(netProfit, "#.##"), text_color=color.white, bgcolor=color.new(profitColor, 70))
-    
-    table.cell(dashboard, 0, 4, "Mode", text_color=color.white, bgcolor=color.new(color.gray, 80))
-    table.cell(dashboard, 1, 4, "Strategy", text_color=color.white, bgcolor=color.new(color.gray, 80))
+    // Only recreate table if trade count changed or table doesn't exist
+    if na(dashboard) or totalTrades != lastTradeCount
+        // Delete old table
+        if not na(dashboard)
+            table.delete(dashboard)
+        
+        // Create new table
+        dashboard := table.new(position.top_right, 2, 5, 
+             border_width=2, border_color=color.gray, frame_width=1, frame_color=color.gray)
+        
+        // Header
+        table.cell(dashboard, 0, 0, "Metric", text_color=color.white, bgcolor=color.new(color.blue, 50))
+        table.cell(dashboard, 1, 0, "Value", text_color=color.white, bgcolor=color.new(color.blue, 50))
+        
+        // Calculate metrics
+        winningTrades = 0
+        
+        if totalTrades > 0
+            for i = 0 to totalTrades - 1
+                if strategy.closedtrades.profit(i) > 0
+                    winningTrades += 1
+        
+        winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0
+        netProfit = strategy.netprofit
+        
+        // Display metrics
+        table.cell(dashboard, 0, 1, "Total Trades", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        table.cell(dashboard, 1, 1, str.tostring(totalTrades), text_color=color.white, bgcolor=color.new(color.gray, 80))
+        
+        table.cell(dashboard, 0, 2, "Win Rate", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        table.cell(dashboard, 1, 2, str.tostring(winRate, "#.##") + "%", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        
+        table.cell(dashboard, 0, 3, "Net Profit", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        profitColor = netProfit > 0 ? color.green : netProfit < 0 ? color.red : color.gray
+        table.cell(dashboard, 1, 3, str.tostring(netProfit, "#.##"), text_color=color.white, bgcolor=color.new(profitColor, 70))
+        
+        table.cell(dashboard, 0, 4, "Mode", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        table.cell(dashboard, 1, 4, "Strategy", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        
+        lastTradeCount := totalTrades
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ALERTS

@@ -216,7 +216,7 @@ The script uses `barstate.isconfirmed` throughout to ensure:
 
 ## Support and Contribution
 
-For issues, questions, or contributions, please refer to the repository:
+For issues, questions, or contributions, please visit the repository at:
 https://github.com/chenyco/3bar_play_pine
 
 ## License

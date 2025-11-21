@@ -35,6 +35,8 @@ atrLength = input.int(14, "ATR Length", minval=1, maxval=100,
      group="Pattern", tooltip="Period for ATR calculation")
 atrMultiplier = input.float(1.2, "ATR Multiplier", minval=0.1, maxval=5.0, step=0.1,
      group="Pattern", tooltip="Multiplier for ATR to define wide-range bar")
+restingBarTolerance = input.float(0.02, "Resting Bar Tolerance", minval=0.0, maxval=0.1, step=0.01,
+     group="Pattern", tooltip="Tolerance for resting bar staying within Bar 1 range (e.g., 0.02 = 2%)")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUTS - Filters
@@ -159,7 +161,7 @@ if lookingForBar2 and barstate.isconfirmed and bar_index == bar1Index + 1
     bodySmaller = bodySize < bodySize[1] * 0.8  // Smaller than Bar 1
     if isBullishPattern
         // For bullish pattern: resting bar must stay in upper 50% of Bar 1
-        inUpperHalf = low >= bar1Mid and high <= bar1High * 1.02  // Allow 2% overshoot
+        inUpperHalf = low >= bar1Mid and high <= bar1High * (1 + restingBarTolerance)
         if inUpperHalf and bodySmaller
             bar2Index := bar_index
             lookingForBar2 := false
@@ -171,7 +173,7 @@ if lookingForBar2 and barstate.isconfirmed and bar_index == bar1Index + 1
             lookingForBar3 := false
     else
         // For bearish pattern: resting bar must stay in lower 50% of Bar 1
-        inLowerHalf = high <= bar1Mid and low >= bar1Low * 0.98  // Allow 2% undershoot
+        inLowerHalf = high <= bar1Mid and low >= bar1Low * (1 - restingBarTolerance)
         if inLowerHalf and bodySmaller
             bar2Index := bar_index
             lookingForBar2 := false
@@ -223,8 +225,7 @@ if triggerLong
     if useAtrStop
         stopPrice := entryPrice - atr * atrStopMultiplier
     else
-        stopDistance = entryPrice - bar1Low
-        stopPrice := entryPrice - stopDistance
+        stopPrice := bar1Low
     takeProfitPrice := entryPrice + (entryPrice - stopPrice) * riskRewardRatio
     lookingForBar3 := false
 
@@ -233,8 +234,7 @@ if triggerShort
     if useAtrStop
         stopPrice := entryPrice + atr * atrStopMultiplier
     else
-        stopDistance = bar1High - entryPrice
-        stopPrice := entryPrice + stopDistance
+        stopPrice := bar1High
     takeProfitPrice := entryPrice - (stopPrice - entryPrice) * riskRewardRatio
     lookingForBar3 := false
 

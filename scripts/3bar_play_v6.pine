@@ -1,0 +1,399 @@
+//@version=6
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║ 3 Bar Play Strategy v6                                                    ║
+// ║ Author: Chenyco                                                           ║
+// ║ Description: Production-ready implementation of the 3 Bar Play pattern    ║
+// ║              strategy with comprehensive filters, risk management, and    ║
+// ║              visual feedback. Works as both Strategy and Study mode.      ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODE SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTE: To switch between Strategy and Study mode, comment/uncomment the appropriate line below
+
+// STRATEGY MODE (uncomment for backtesting)
+strategy("3 Bar Play v6", overlay=true, initial_capital=10000, 
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.1,
+     slippage=2, pyramiding=0)
+
+// STUDY MODE (comment strategy line above and uncomment indicator line below for overlay without trades)
+// indicator("3 Bar Play v6 - Study", overlay=true, max_labels_count=500, max_lines_count=500)
+
+// Detect if running as strategy
+isStrategyMode = true  // Set to false when using indicator() instead of strategy()
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INPUTS - Pattern Detection
+// ═══════════════════════════════════════════════════════════════════════════
+bodyAvgLength = input.int(10, "Body Average Length", minval=1, maxval=100, 
+     group="Pattern", tooltip="Number of bars to calculate average body size")
+bodyMultiplier = input.float(1.5, "Body Multiplier", minval=0.5, maxval=5.0, step=0.1,
+     group="Pattern", tooltip="Multiplier for average body size to define wide-range bar")
+atrLength = input.int(14, "ATR Length", minval=1, maxval=100,
+     group="Pattern", tooltip="Period for ATR calculation")
+atrMultiplier = input.float(1.2, "ATR Multiplier", minval=0.1, maxval=5.0, step=0.1,
+     group="Pattern", tooltip="Multiplier for ATR to define wide-range bar")
+restingBarTolerance = input.float(0.02, "Resting Bar Tolerance", minval=0.0, maxval=0.1, step=0.01,
+     group="Pattern", tooltip="Tolerance for resting bar staying within Bar 1 range (e.g., 0.02 = 2%)")
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INPUTS - Filters
+// ═══════════════════════════════════════════════════════════════════════════
+useEmaFilter = input.bool(true, "Use EMA Trend Filter", group="Filters",
+     tooltip="Only take longs above EMA, shorts below EMA")
+emaLength = input.int(20, "EMA Length", minval=1, maxval=500, group="Filters",
+     tooltip="Period for EMA trend filter")
+useVolumeFilter = input.bool(true, "Use Volume Filter", group="Filters",
+     tooltip="Require Bar 1 volume above average")
+volumeLength = input.int(20, "Volume Average Length", minval=1, maxval=100, group="Filters")
+volumeThreshold = input.float(1.5, "Volume Threshold", minval=1.0, maxval=5.0, step=0.1, 
+     group="Filters", tooltip="Multiplier for average volume")
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INPUTS - Risk Management
+// ═══════════════════════════════════════════════════════════════════════════
+riskRewardRatio = input.float(2.0, "Risk:Reward Ratio", minval=0.5, maxval=10.0, step=0.5,
+     group="Risk Management", tooltip="Target profit = stop distance * this ratio")
+useAtrStop = input.bool(false, "Use ATR-based Stop", group="Risk Management",
+     tooltip="Use ATR for stop distance instead of bar range")
+atrStopMultiplier = input.float(1.5, "ATR Stop Multiplier", minval=0.5, maxval=5.0, step=0.1,
+     group="Risk Management", tooltip="Multiplier for ATR when using ATR-based stops")
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INPUTS - Visuals
+// ═══════════════════════════════════════════════════════════════════════════
+highlightBars = input.bool(true, "Highlight Pattern Bars", group="Visuals",
+     tooltip="Color bars when pattern is detected")
+showLabels = input.bool(true, "Show Entry Labels", group="Visuals",
+     tooltip="Display buy/sell labels on trigger")
+showLines = input.bool(true, "Show Stop/Take Profit Lines", group="Visuals",
+     tooltip="Draw lines for stop loss and take profit levels")
+showDashboard = input.bool(true, "Show Dashboard", group="Visuals",
+     tooltip="Display performance metrics table")
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INPUTS - Alerts
+// ═══════════════════════════════════════════════════════════════════════════
+enableAlerts = input.bool(true, "Enable Alerts", group="Alerts",
+     tooltip="Enable alert conditions for webhook integration")
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CALCULATIONS - Technical Indicators
+// ═══════════════════════════════════════════════════════════════════════════
+atr = ta.atr(atrLength)
+ema = ta.ema(close, emaLength)
+avgVolume = ta.sma(volume, volumeLength)
+
+// Calculate average body size over specified length
+bodySize = math.abs(close - open)
+avgBodySize = ta.sma(bodySize, bodyAvgLength)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PATTERN DETECTION - Helper Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Check if a bar is a wide-range igniting bar
+isWideRangeBar(barIndex) =>
+    body = math.abs(close[barIndex] - open[barIndex])
+    aboveAvgBody = body > avgBodySize[barIndex] * bodyMultiplier
+    aboveAtr = body > atr[barIndex] * atrMultiplier
+    aboveAvgBody and aboveAtr
+
+// Check if bar has sufficient volume
+hasGoodVolume(barIndex) =>
+    if useVolumeFilter
+        volume[barIndex] > avgVolume[barIndex] * volumeThreshold
+    else
+        true
+
+// Check if bar is bullish (green)
+isBullish(barIndex) =>
+    close[barIndex] > open[barIndex]
+
+// Check if bar is bearish (red)
+isBearish(barIndex) =>
+    close[barIndex] < open[barIndex]
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PATTERN DETECTION - 3 Bar Play Logic
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Variables to track pattern bars
+var int bar1Index = na
+var int bar2Index = na
+var float bar1High = na
+var float bar1Low = na
+var float bar1Mid = na
+var float bar1BodySize = na
+var bool lookingForBar2 = false
+var bool lookingForBar3 = false
+var bool isBullishPattern = false
+
+// Bar 1: Wide-range igniting bar detection (confirmed on bar close)
+bar1Detected = false
+if barstate.isconfirmed
+    if isWideRangeBar(0) and hasGoodVolume(0)
+        if isBullish(0)
+            bar1Index := bar_index
+            bar1High := high
+            bar1Low := low
+            bar1Mid := low + (high - low) / 2
+            bar1BodySize := bodySize
+            lookingForBar2 := true
+            lookingForBar3 := false
+            isBullishPattern := true
+            bar1Detected := true
+        else if isBearish(0)
+            bar1Index := bar_index
+            bar1High := high
+            bar1Low := low
+            bar1Mid := low + (high - low) / 2
+            bar1BodySize := bodySize
+            lookingForBar2 := true
+            lookingForBar3 := false
+            isBullishPattern := false
+            bar1Detected := true
+
+// Bar 2: Resting bar detection (must stay within upper/lower 50% of Bar 1)
+bar2Detected = false
+if lookingForBar2 and barstate.isconfirmed and bar_index == bar1Index + 1
+    bodySmaller = bodySize < bar1BodySize * 0.8  // Current body smaller than Bar 1
+    if isBullishPattern
+        // For bullish pattern: resting bar must stay in upper 50% of Bar 1
+        rangeSize = bar1High - bar1Low
+        allowedOvershoot = rangeSize * restingBarTolerance
+        inUpperHalf = low >= bar1Mid and high <= bar1High + allowedOvershoot
+        if inUpperHalf and bodySmaller
+            bar2Index := bar_index
+            lookingForBar2 := false
+            lookingForBar3 := true
+            bar2Detected := true
+        else
+            // Pattern failed
+            lookingForBar2 := false
+            lookingForBar3 := false
+    else
+        // For bearish pattern: resting bar must stay in lower 50% of Bar 1
+        rangeSize = bar1High - bar1Low
+        allowedUndershoot = rangeSize * restingBarTolerance
+        inLowerHalf = high <= bar1Mid and low >= bar1Low - allowedUndershoot
+        if inLowerHalf and bodySmaller
+            bar2Index := bar_index
+            lookingForBar2 := false
+            lookingForBar3 := true
+            bar2Detected := true
+        else
+            // Pattern failed
+            lookingForBar2 := false
+            lookingForBar3 := false
+
+// If we skip a bar while looking for Bar 2, reset pattern
+if lookingForBar2 and barstate.isconfirmed and bar_index > bar1Index + 1
+    lookingForBar2 := false
+    lookingForBar3 := false
+
+// Bar 3: Trigger detection (break of Bar 2 high/low)
+var bool triggerLong = false
+var bool triggerShort = false
+var float entryPrice = na
+var float stopPrice = na
+var float takeProfitPrice = na
+
+triggerLong := false
+triggerShort := false
+
+if lookingForBar3 and bar_index == bar2Index + 1
+    if isBullishPattern
+        // Long trigger: price breaks above Bar 2 high
+        if high > high[1]
+            // Apply EMA filter if enabled
+            if useEmaFilter
+                if close > ema
+                    triggerLong := true
+            else
+                triggerLong := true
+    else
+        // Short trigger: price breaks below Bar 2 low
+        if low < low[1]
+            // Apply EMA filter if enabled
+            if useEmaFilter
+                if close < ema
+                    triggerShort := true
+            else
+                triggerShort := true
+
+// Calculate entry, stop, and take profit levels
+var float calculatedEntryPrice = na
+var float calculatedStopPrice = na
+var float calculatedTakeProfitPrice = na
+
+if triggerLong
+    calculatedEntryPrice := high[1]  // Bar 2 high
+    if useAtrStop
+        calculatedStopPrice := calculatedEntryPrice - atr * atrStopMultiplier
+    else
+        calculatedStopPrice := bar1Low
+    calculatedTakeProfitPrice := calculatedEntryPrice + (calculatedEntryPrice - calculatedStopPrice) * riskRewardRatio
+    entryPrice := calculatedEntryPrice
+    stopPrice := calculatedStopPrice
+    takeProfitPrice := calculatedTakeProfitPrice
+    lookingForBar3 := false
+
+if triggerShort
+    calculatedEntryPrice := low[1]  // Bar 2 low
+    if useAtrStop
+        calculatedStopPrice := calculatedEntryPrice + atr * atrStopMultiplier
+    else
+        calculatedStopPrice := bar1High
+    calculatedTakeProfitPrice := calculatedEntryPrice - (calculatedStopPrice - calculatedEntryPrice) * riskRewardRatio
+    entryPrice := calculatedEntryPrice
+    stopPrice := calculatedStopPrice
+    takeProfitPrice := calculatedTakeProfitPrice
+    lookingForBar3 := false
+
+// If we skip a bar while looking for Bar 3, reset pattern
+if lookingForBar3 and bar_index > bar2Index + 1
+    lookingForBar3 := false
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STRATEGY EXECUTION (only in Strategy mode)
+// ═══════════════════════════════════════════════════════════════════════════
+if isStrategyMode
+    if triggerLong and barstate.isconfirmed and not na(calculatedStopPrice) and not na(calculatedTakeProfitPrice)
+        strategy.entry("Long", strategy.long, comment="Long Entry")
+        strategy.exit("Long Exit", "Long", stop=calculatedStopPrice, limit=calculatedTakeProfitPrice)
+    
+    if triggerShort and barstate.isconfirmed and not na(calculatedStopPrice) and not na(calculatedTakeProfitPrice)
+        strategy.entry("Short", strategy.short, comment="Short Entry")
+        strategy.exit("Short Exit", "Short", stop=calculatedStopPrice, limit=calculatedTakeProfitPrice)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VISUALS - Bar Highlighting
+// ═══════════════════════════════════════════════════════════════════════════
+if highlightBars
+    // Highlight Bar 1 (igniting bar)
+    if bar1Detected
+        bgcolor(isBullishPattern ? color.new(color.green, 85) : color.new(color.red, 85))
+    
+    // Highlight Bar 2 (resting bar)
+    if bar2Detected
+        bgcolor(color.new(color.orange, 90))
+    
+    // Highlight Bar 3 (trigger bar)
+    if triggerLong or triggerShort
+        bgcolor(triggerLong ? color.new(color.green, 80) : color.new(color.red, 80))
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VISUALS - Entry Labels
+// ═══════════════════════════════════════════════════════════════════════════
+if showLabels
+    if triggerLong and barstate.isconfirmed
+        label.new(bar_index, low, "LONG\n" + str.tostring(entryPrice, format.mintick), 
+             style=label.style_label_up, color=color.new(color.green, 0), 
+             textcolor=color.white, size=size.small)
+    
+    if triggerShort and barstate.isconfirmed
+        label.new(bar_index, high, "SHORT\n" + str.tostring(entryPrice, format.mintick), 
+             style=label.style_label_down, color=color.new(color.red, 0), 
+             textcolor=color.white, size=size.small)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VISUALS - Stop Loss and Take Profit Lines
+// ═══════════════════════════════════════════════════════════════════════════
+var line stopLine = na
+var line takeProfitLine = na
+
+if showLines
+    // Draw new lines on trigger
+    if (triggerLong or triggerShort) and barstate.isconfirmed
+        // Delete old lines
+        if not na(stopLine)
+            line.delete(stopLine)
+        if not na(takeProfitLine)
+            line.delete(takeProfitLine)
+        
+        if triggerLong
+            stopLine := line.new(bar_index, calculatedStopPrice, bar_index + 20, calculatedStopPrice, 
+                 color=color.red, width=2, style=line.style_dashed)
+            takeProfitLine := line.new(bar_index, calculatedTakeProfitPrice, bar_index + 20, calculatedTakeProfitPrice, 
+                 color=color.green, width=2, style=line.style_dashed)
+        
+        if triggerShort
+            stopLine := line.new(bar_index, calculatedStopPrice, bar_index + 20, calculatedStopPrice, 
+                 color=color.red, width=2, style=line.style_dashed)
+            takeProfitLine := line.new(bar_index, calculatedTakeProfitPrice, bar_index + 20, calculatedTakeProfitPrice, 
+                 color=color.green, width=2, style=line.style_dashed)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VISUALS - Performance Dashboard (Strategy Mode Only)
+// ═══════════════════════════════════════════════════════════════════════════
+var table dashboard = na
+var int lastTradeCount = 0
+
+if showDashboard and isStrategyMode
+    totalTrades = strategy.closedtrades
+    
+    // Only recreate table if trade count changed or table doesn't exist
+    if na(dashboard) or totalTrades != lastTradeCount
+        // Delete old table
+        if not na(dashboard)
+            table.delete(dashboard)
+        
+        // Create new table
+        dashboard := table.new(position.top_right, 2, 5, 
+             border_width=2, border_color=color.gray, frame_width=1, frame_color=color.gray)
+        
+        // Header
+        table.cell(dashboard, 0, 0, "Metric", text_color=color.white, bgcolor=color.new(color.blue, 50))
+        table.cell(dashboard, 1, 0, "Value", text_color=color.white, bgcolor=color.new(color.blue, 50))
+        
+        // Calculate metrics
+        winningTrades = 0
+        
+        if totalTrades > 0
+            for i = 0 to totalTrades - 1
+                if strategy.closedtrades.profit(i) > 0
+                    winningTrades += 1
+        
+        winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0
+        netProfit = strategy.netprofit
+        
+        // Display metrics
+        table.cell(dashboard, 0, 1, "Total Trades", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        table.cell(dashboard, 1, 1, str.tostring(totalTrades), text_color=color.white, bgcolor=color.new(color.gray, 80))
+        
+        table.cell(dashboard, 0, 2, "Win Rate", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        table.cell(dashboard, 1, 2, str.tostring(winRate, "#.##") + "%", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        
+        table.cell(dashboard, 0, 3, "Net Profit", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        profitColor = netProfit > 0 ? color.green : netProfit < 0 ? color.red : color.gray
+        table.cell(dashboard, 1, 3, str.tostring(netProfit, "#.##"), text_color=color.white, bgcolor=color.new(profitColor, 70))
+        
+        table.cell(dashboard, 0, 4, "Mode", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        table.cell(dashboard, 1, 4, "Strategy", text_color=color.white, bgcolor=color.new(color.gray, 80))
+        
+        lastTradeCount := totalTrades
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ALERTS
+// ═══════════════════════════════════════════════════════════════════════════
+// Alert for long setup (with safety checks for na values)
+alertcondition(triggerLong and enableAlerts and not na(entryPrice) and not na(stopPrice) and not na(takeProfitPrice), 
+     title="3 Bar Play - Long Setup", 
+     message="3 Bar Play LONG triggered at {{close}} | Entry: " + str.tostring(entryPrice) + 
+     " | Stop: " + str.tostring(stopPrice) + " | Target: " + str.tostring(takeProfitPrice) +
+     " | Bar Index: {{bar_index}}")
+
+// Alert for short setup (with safety checks for na values)
+alertcondition(triggerShort and enableAlerts and not na(entryPrice) and not na(stopPrice) and not na(takeProfitPrice), 
+     title="3 Bar Play - Short Setup", 
+     message="3 Bar Play SHORT triggered at {{close}} | Entry: " + str.tostring(entryPrice) + 
+     " | Stop: " + str.tostring(stopPrice) + " | Target: " + str.tostring(takeProfitPrice) +
+     " | Bar Index: {{bar_index}}")
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLOTS (for study mode visualization)
+// ═══════════════════════════════════════════════════════════════════════════
+plot(useEmaFilter ? ema : na, "EMA", color=color.blue, linewidth=2)

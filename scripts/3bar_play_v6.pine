@@ -27,57 +27,40 @@ isStrategyMode = true  // Set to false when using indicator() instead of strateg
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUTS - Pattern Detection
 // ═══════════════════════════════════════════════════════════════════════════
-bodyAvgLength = input.int(10, "Body Average Length", minval=1, maxval=100, 
-     group="Pattern", tooltip="Number of bars to calculate average body size")
-bodyMultiplier = input.float(1.5, "Body Multiplier", minval=0.5, maxval=5.0, step=0.1,
-     group="Pattern", tooltip="Multiplier for average body size to define wide-range bar")
-atrLength = input.int(14, "ATR Length", minval=1, maxval=100,
-     group="Pattern", tooltip="Period for ATR calculation")
-atrMultiplier = input.float(1.2, "ATR Multiplier", minval=0.1, maxval=5.0, step=0.1,
-     group="Pattern", tooltip="Multiplier for ATR to define wide-range bar")
-restingBarTolerance = input.float(0.02, "Resting Bar Tolerance", minval=0.0, maxval=0.1, step=0.01,
-     group="Pattern", tooltip="Tolerance for resting bar staying within Bar 1 range (e.g., 0.02 = 2%)")
+bodyAvgLength = input.int(10, "Body Average Length", minval=1, maxval=100, group="Pattern", tooltip="Number of bars to calculate average body size")
+bodyMultiplier = input.float(1.5, "Body Multiplier", minval=0.5, maxval=5.0, step=0.1, group="Pattern", tooltip="Multiplier for average body size to define wide-range bar")
+atrLength = input.int(14, "ATR Length", minval=1, maxval=100, group="Pattern", tooltip="Period for ATR calculation")
+atrMultiplier = input.float(1.2, "ATR Multiplier", minval=0.1, maxval=5.0, step=0.1, group="Pattern", tooltip="Multiplier for ATR to define wide-range bar")
+restingBarTolerance = input.float(0.02, "Resting Bar Tolerance", minval=0.0, maxval=0.1, step=0.01, group="Pattern", tooltip="Tolerance for resting bar staying within Bar 1 range (e.g., 0.02 = 2%)")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUTS - Filters
 // ═══════════════════════════════════════════════════════════════════════════
-useEmaFilter = input.bool(true, "Use EMA Trend Filter", group="Filters",
-     tooltip="Only take longs above EMA, shorts below EMA")
-emaLength = input.int(20, "EMA Length", minval=1, maxval=500, group="Filters",
-     tooltip="Period for EMA trend filter")
-useVolumeFilter = input.bool(true, "Use Volume Filter", group="Filters",
-     tooltip="Require Bar 1 volume above average")
+useEmaFilter = input.bool(true, "Use EMA Trend Filter", group="Filters", tooltip="Only take longs above EMA, shorts below EMA")
+emaLength = input.int(20, "EMA Length", minval=1, maxval=500, group="Filters", tooltip="Period for EMA trend filter")
+useVolumeFilter = input.bool(true, "Use Volume Filter", group="Filters", tooltip="Require Bar 1 volume above average")
 volumeLength = input.int(20, "Volume Average Length", minval=1, maxval=100, group="Filters")
-volumeThreshold = input.float(1.5, "Volume Threshold", minval=1.0, maxval=5.0, step=0.1, 
-     group="Filters", tooltip="Multiplier for average volume")
+volumeThreshold = input.float(1.5, "Volume Threshold", minval=1.0, maxval=5.0, step=0.1, group="Filters", tooltip="Multiplier for average volume")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUTS - Risk Management
 // ═══════════════════════════════════════════════════════════════════════════
-riskRewardRatio = input.float(2.0, "Risk:Reward Ratio", minval=0.5, maxval=10.0, step=0.5,
-     group="Risk Management", tooltip="Target profit = stop distance * this ratio")
-useAtrStop = input.bool(false, "Use ATR-based Stop", group="Risk Management",
-     tooltip="Use ATR for stop distance instead of bar range")
-atrStopMultiplier = input.float(1.5, "ATR Stop Multiplier", minval=0.5, maxval=5.0, step=0.1,
-     group="Risk Management", tooltip="Multiplier for ATR when using ATR-based stops")
+riskRewardRatio = input.float(2.0, "Risk:Reward Ratio", minval=0.5, maxval=10.0, step=0.5, group="Risk Management", tooltip="Target profit = stop distance * this ratio")
+useAtrStop = input.bool(false, "Use ATR-based Stop", group="Risk Management", tooltip="Use ATR for stop distance instead of bar range")
+atrStopMultiplier = input.float(1.5, "ATR Stop Multiplier", minval=0.5, maxval=5.0, step=0.1, group="Risk Management", tooltip="Multiplier for ATR when using ATR-based stops")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUTS - Visuals
 // ═══════════════════════════════════════════════════════════════════════════
-highlightBars = input.bool(true, "Highlight Pattern Bars", group="Visuals",
-     tooltip="Color bars when pattern is detected")
-showLabels = input.bool(true, "Show Entry Labels", group="Visuals",
-     tooltip="Display buy/sell labels on trigger")
-showLines = input.bool(true, "Show Stop/Take Profit Lines", group="Visuals",
-     tooltip="Draw lines for stop loss and take profit levels")
-showDashboard = input.bool(true, "Show Dashboard", group="Visuals",
-     tooltip="Display performance metrics table")
+highlightBars = input.bool(true, "Highlight Pattern Bars", group="Visuals", tooltip="Color bars when pattern is detected")
+showLabels = input.bool(true, "Show Entry Labels", group="Visuals", tooltip="Display buy/sell labels on trigger")
+showLines = input.bool(true, "Show Stop/Take Profit Lines", group="Visuals", tooltip="Draw lines for stop loss and take profit levels")
+showDashboard = input.bool(true, "Show Dashboard", group="Visuals", tooltip="Display performance metrics table")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUTS - Alerts
 // ═══════════════════════════════════════════════════════════════════════════
-enableAlerts = input.bool(true, "Enable Alerts", group="Alerts",
-     tooltip="Enable alert conditions for webhook integration")
+enableAlerts = input.bool(true, "Enable Alerts", group="Alerts", tooltip="Enable alert conditions for webhook integration")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CALCULATIONS - Technical Indicators
@@ -272,18 +255,22 @@ if isStrategyMode
 // ═══════════════════════════════════════════════════════════════════════════
 // VISUALS - Bar Highlighting
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Refactored: Assign highlight color in local scope, call bgcolor in global scope
+var color highlightColor = na
+highlightColor := na
 if highlightBars
     // Highlight Bar 1 (igniting bar)
     if bar1Detected
-        bgcolor(isBullishPattern ? color.new(color.green, 85) : color.new(color.red, 85))
-    
+        highlightColor := isBullishPattern ? color.new(color.green, 85) : color.new(color.red, 85)
     // Highlight Bar 2 (resting bar)
     if bar2Detected
-        bgcolor(color.new(color.orange, 90))
-    
+        highlightColor := color.new(color.orange, 90)
     // Highlight Bar 3 (trigger bar)
     if triggerLong or triggerShort
-        bgcolor(triggerLong ? color.new(color.green, 80) : color.new(color.red, 80))
+        highlightColor := triggerLong ? color.new(color.green, 80) : color.new(color.red, 80)
+
+bgcolor(highlightColor)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VISUALS - Entry Labels
@@ -376,24 +363,26 @@ if showDashboard and isStrategyMode
         
         lastTradeCount := totalTrades
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ALERTS
 // ═══════════════════════════════════════════════════════════════════════════
-// Alert for long setup (with safety checks for na values)
-alertcondition(triggerLong and enableAlerts and not na(entryPrice) and not na(stopPrice) and not na(takeProfitPrice), 
-     title="3 Bar Play - Long Setup", 
-     message="3 Bar Play LONG triggered at {{close}} | Entry: " + str.tostring(entryPrice) + 
-     " | Stop: " + str.tostring(stopPrice) + " | Target: " + str.tostring(takeProfitPrice) +
-     " | Bar Index: {{bar_index}}")
+// Plot entry, stop, and take profit for alert use
 
-// Alert for short setup (with safety checks for na values)
-alertcondition(triggerShort and enableAlerts and not na(entryPrice) and not na(stopPrice) and not na(takeProfitPrice), 
-     title="3 Bar Play - Short Setup", 
-     message="3 Bar Play SHORT triggered at {{close}} | Entry: " + str.tostring(entryPrice) + 
-     " | Stop: " + str.tostring(stopPrice) + " | Target: " + str.tostring(takeProfitPrice) +
-     " | Bar Index: {{bar_index}}")
+plotEntry = entryPrice
+plotStop = stopPrice
+plotTarget = takeProfitPrice
+
+// Alert for long setup (reference plots for dynamic values)
+alertcondition(triggerLong and enableAlerts and not na(entryPrice) and not na(stopPrice) and not na(takeProfitPrice), title="3 Bar Play - Long Setup", message="3 Bar Play LONG triggered at {{close}} | Entry: {{plot_1}} | Stop: {{plot_2}} | Target: {{plot_3}} | Bar Index: {{bar_index}}")
+
+// Alert for short setup (reference plots for dynamic values)
+alertcondition(triggerShort and enableAlerts and not na(entryPrice) and not na(stopPrice) and not na(takeProfitPrice), title="3 Bar Play - Short Setup", message="3 Bar Play SHORT triggered at {{close}} | Entry: {{plot_1}} | Stop: {{plot_2}} | Target: {{plot_3}} | Bar Index: {{bar_index}}")
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PLOTS (for study mode visualization)
 // ═══════════════════════════════════════════════════════════════════════════
 plot(useEmaFilter ? ema : na, "EMA", color=color.blue, linewidth=2)
+plot(plotEntry, "Entry", color=color.yellow, linewidth=1, display=display.none)
+plot(plotStop, "Stop", color=color.red, linewidth=1, display=display.none)
+plot(plotTarget, "Target", color=color.green, linewidth=1, display=display.none)

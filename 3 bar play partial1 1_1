@@ -2,25 +2,29 @@
 strategy("3 bar play 2:1", overlay=true)
 
 riskUnit = input(10, title="Risk Unit $")
-wieghtedRatio = input(2.2, title="Wieghted Bar ATR Ratio")
+weightedRatio = input(2.2, title="Weighted Bar ATR Ratio")
 smallBarRatio = input(0.8, title="Small Bar Ratio")
-equalPriceRatio = input(0.2, title="Equal Price Ratio")
+equalPriceRatio = input(0.02, title="Equal Price Ratio")
 
 atrValue = ta.atr(14)
 
-wiegtedPrevAtr = ta.tr[1]
+weightedPrevAtr = ta.tr[1]
 currentAtr = ta.tr
 
 prevIsLong = close[1] > open[1]
-trade = wiegtedPrevAtr > atrValue * wieghtedRatio and currentAtr < wiegtedPrevAtr * smallBarRatio
+trade = weightedPrevAtr > atrValue * weightedRatio and currentAtr < weightedPrevAtr * smallBarRatio
 
 // check relative price for the two bars
 priceDiff = equalPriceRatio * close
 trade := trade and (prevIsLong ? math.abs(high[1] - high[0]) < priceDiff : math.abs(low[1] - low[0]) < priceDiff)
 
 //check for new price level
-phigh = ta.pivothigh(14,0)
-plow = ta.pivotlow(14,0)
+phighRaw = ta.pivothigh(14,0)
+plowRaw = ta.pivotlow(14,0)
+// Fix: Get the last non-NaN pivot value to avoid NaN comparisons
+phigh = ta.valuewhen(not na(phighRaw), phighRaw, 0)
+plow = ta.valuewhen(not na(plowRaw), plowRaw, 0)
+
 trade := trade and (prevIsLong ? plow - priceDiff < low[1] :  phigh + priceDiff > high[1])
 
 
@@ -35,5 +39,7 @@ if (trade) // and  year > 2019)
         strategy.entry("entry", prevIsLong ? strategy.long : strategy.short, comment="Entry" + entryString, stop=entry, limit=limit, qty = qty)
         stop = prevIsLong ? entry - stopSize : entry + stopSize
         trail_price2 = prevIsLong ? entry + stopSize * 2 : entry - stopSize * 2
-        strategy.exit("stopProfit2", "entry", stop = stop, trail_price = trail_price2, comment="Stop/Profit2_" + entryString)
+        // Add trail_offset (in ticks)
+        trail_offset_ticks = stopSize / syminfo.mintick
+        strategy.exit("stopProfit2", "entry", stop = stop, trail_price = trail_price2, trail_offset = trail_offset_ticks, comment="Stop/Profit2_" + entryString)
         label.new(bar_index[0], entry,"entry " + str.tostring(entry), style=label.style_none, textcolor=#ffffff)
